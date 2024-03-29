@@ -1,8 +1,8 @@
 from typing import Tuple
 
 import jax.numpy as jnp
-from jax import jit
-from jax.lax import scan, while_loop
+from jax import jit, vmap
+from jax.lax import scan, stop_gradient, while_loop
 from jax.tree_util import Partial
 
 from .utils import fill_diagonal
@@ -52,7 +52,7 @@ def continue_backtracking(carry: Tuple[jnp.ndarray, jnp.ndarray, int, int]) -> b
 
 
 @jit
-def get_switching_model(
+def get_optimal_state_sequence(
     signal: jnp.ndarray, centroids: jnp.ndarray, penalty: float
 ) -> jnp.ndarray:
     # signal, shape (n_samples, n_dims)
@@ -95,3 +95,18 @@ def get_switching_model(
     )
 
     return state_vec
+
+
+get_optimal_state_sequence_batch_ = vmap(
+    get_optimal_state_sequence, in_axes=(0, None, None), out_axes=0
+)
+
+
+@jit
+def get_optimal_state_sequence_batch(
+    batch: jnp.ndarray, centroids: jnp.ndarray, penalty: float
+) -> jnp.ndarray:
+    # batch, shape (n_signals, n_samples, n_dims)
+    # centroids, shape (n_states, n_dims)
+    # output the optimal sequence of states for each signal of the batch, shape (n_signals, n_samples)
+    return stop_gradient(get_optimal_state_sequence_batch_(batch, centroids, penalty))
